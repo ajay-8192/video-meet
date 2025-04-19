@@ -41,7 +41,6 @@ const AuthRoot: React.FC = () => {
 
     return (
         <RoomProvider>
-            <div>Auth Root</div>
             <Outlet />
         </RoomProvider>
     );

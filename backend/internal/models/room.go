@@ -27,6 +27,26 @@ type RoomMember struct {
 	UpdatedAt time.Time `json:"updatedAt"`
 }
 
+type InvitedMember struct {
+	ID        string    `json:"id" gorm:"primaryKey,index"`
+	RoomID    string    `json:"roomId" gorm:"not null"`
+	Email     string    `json:"email" gorm:"not null"`
+	Status    string    `json:"status" gorm:"default:pending"` // pending, accepted, rejected
+	InvitedBy string    `json:"invitedBy" gorm:"not null"`
+	CreatedAt time.Time `json:"createdAt"`
+	UpdatedAt time.Time `json:"updatedAt"`
+}
+
+type JoinRequest struct {
+	ID        string    `json:"id" gorm:"primaryKey,index"`
+	RoomID    string    `json:"roomId" gorm:"not null"`
+	UserID    string    `json:"userId" gorm:"not null"`
+	Status    string    `json:"status" gorm:"default:pending"` // pending, approved, rejected
+	Message   string    `json:"message"`
+	CreatedAt time.Time `json:"createdAt"`
+	UpdatedAt time.Time `json:"updatedAt"`
+}
+
 type RoomStats struct {
 	ID                string    `json:"id" gorm:"primaryKey,index"`
 	RoomID            string    `json:"roomId" gorm:"not null"`

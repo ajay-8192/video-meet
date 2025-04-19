@@ -1,4 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import useApiRequest from '../../hooks/useAPIRequest';
+import { construct_api_urls } from '../../constants/api';
+import { useRoom } from '../../context/RoomContext';
+import { useNavigate } from 'react-router-dom';
 
 export default function CreateRoom() {
     const [formData, setFormData] = useState({
@@ -16,6 +20,21 @@ export default function CreateRoom() {
     const [inviteError, setInviteError] = useState('');
     const [inviteLink, setInviteLink] = useState('');
     const [linkCopied, setLinkCopied] = useState(false);
+
+    const navigate = useNavigate();
+    const { rooms, updateRooms, updateSelectedRoom } = useRoom();
+    const { loading, error, data, refetch: createRoom } = useApiRequest(construct_api_urls.createRoom())
+
+    useEffect(() => {
+        if (data?.room) {
+            const id = data.room.id;
+            const link = location.host + `/room/${id}`;
+            setInviteLink(link);
+            const newRooms = [...rooms, data.room]
+            updateRooms(newRooms);
+            updateSelectedRoom(id);
+        }
+    }, [data])
 
     const handleInputChange = (e: any) => {
         const { name, value, type, checked } = e.target;
@@ -64,10 +83,31 @@ export default function CreateRoom() {
             return;
         }
 
+        const payload = {
+            name: formData.roomName,
+            description: formData.description,
+            isPrivate: formData.isPrivate,
+            maxUsers: formData.maxUsers,
+            inviteUsers: formData.isPrivate ? invitedUsers : undefined,
+            password: formData.passwordProtected ? formData.password : undefined
+        }
+
+        createRoom(construct_api_urls.createRoom(), {
+            method: "POST",
+            credentials: "include",
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
         // In a real app, this would make an API call to create the room
         // For now, we'll just generate a fake invite link
         const generatedLink = `videochat.example.com/join/${Math.random().toString(36).substring(2, 8)}`;
-        setInviteLink(generatedLink);
+        // setInviteLink(generatedLink);
+        console.log(generatedLink);
+    };
+
+    const handleJoinRoom = () => {
+        navigate(inviteLink)
     };
 
     const copyInviteLink = () => {
@@ -89,7 +129,7 @@ export default function CreateRoom() {
                 <h1 className="text-2xl font-bold text-center mb-6">Create a Room</h1>
 
                 {!inviteLink ? (
-                    <form className="space-y-5" onSubmit={(e) => { e.preventDefault(); handleCreateRoom(); }}>
+                    <div className="space-y-5">
                         <div>
                             <label htmlFor="roomName" className="block text-sm font-medium text-gray-700 mb-1">
                                 Room Name*
@@ -286,7 +326,9 @@ export default function CreateRoom() {
                         </div>
 
                         <button
-                            type="submit"
+                            type="button"
+                            disabled={loading || Boolean(error)}
+                            onClick={handleCreateRoom}
                             className="w-full flex items-center justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
                         >
                             Create Room
@@ -294,7 +336,7 @@ export default function CreateRoom() {
                                 arrow_right_alt
                             </span>
                         </button>
-                    </form>
+                    </div>
                 ) : (
                     <div className="space-y-6">
                         <div className="flex items-center justify-center p-4 bg-green-50 text-green-700 rounded-md">
@@ -393,6 +435,7 @@ export default function CreateRoom() {
                             </button>
                             <button
                                 type="button"
+                                onClick={handleJoinRoom}
                                 className="flex-1 py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                             >
                                 Join Now

@@ -33,7 +33,7 @@ func main() {
 
 	// Initialize handler
 	authHandler := auth.NewAuthHandler(authService, redisClient)
-	roomHandler := room.NewRoomHandler(roomService)
+	roomHandler := room.NewRoomHandler(roomService, redisClient)
 
 	r := gin.Default()
 
