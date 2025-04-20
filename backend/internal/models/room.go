@@ -3,12 +3,14 @@ package models
 import "time"
 
 type Room struct {
-	ID          string `json:"id" gorm:"primaryKey,index"`
-	Name        string `json:"name" gorm:"not null"`
-	Description string `json:"description"`
-	CreatedBy   string `json:"createdBy" gorm:"not null"`
-	IsPrivate   bool   `json:"isPrivate" gorm:"default:true"`
-	MaxUsers    int    `json:"maxUsers" gorm:"default:10"`
+	ID           string    `json:"id" gorm:"primaryKey,index"`
+	Name         string    `json:"name" gorm:"not null"`
+	Description  string    `json:"description"`
+	CreatedBy    string    `json:"createdBy" gorm:"not null"`
+	CreatedAt    time.Time `json:"createdAt" gorm:"not null"`
+	IsPrivate    bool      `json:"isPrivate" gorm:"default:false"`
+	MaxUsers     int       `json:"maxUsers" gorm:"default:10"`
+	MembersCount int       `json:"membersCount" gorm:"default:1"`
 
 	AllowChat        bool   `json:"allow_chat" gorm:"default:true"`
 	AllowScreenShare bool   `json:"allow_screen_share" gorm:"default:true"`

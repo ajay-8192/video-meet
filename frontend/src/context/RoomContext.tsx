@@ -1,15 +1,32 @@
-import { createContext, useContext, useState } from "react";
+import { createContext, useContext, useEffect, useState } from "react";
 
 interface RoomType {
     id: string;
+    allow_chat: boolean;
+    allow_screen_share: boolean;
+    createdAt: string;
+    createdBy: string;
+    description: string;
+    isPrivate: boolean;
+    maxUsers: number
+    mute_on_entry: boolean;
+    name: string;
+    require_password: boolean;
 }
 
+type RoomsType = {
+    invited: RoomType[];
+    joined: RoomType[];
+    public: RoomType[];
+    pending: RoomType[];
+};
+
 interface RoomContextType {
-    rooms: RoomType[];
+    rooms: RoomsType;
     currentRoom: RoomType | undefined;
     joinRoom: (room: RoomType) => void;
     leaveRoom: (roomId: string) => void;
-    updateRooms: (rooms: RoomType[]) => void;
+    updateRooms: (rooms: RoomsType) => void;
     updateSelectedRoom: (roomId: string) => void;
 }
 
@@ -17,28 +34,34 @@ const RoomContext = createContext<RoomContextType | undefined>(undefined)
 
 export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 
-    const [rooms, setRooms] = useState<RoomType[]>([]);
+    const [rooms, setRooms] = useState<RoomsType>({
+        invited: [],
+        joined: [],
+        pending: [],
+        public: []
+    });
     const [currentRoom, setCurrentRoom] = useState<RoomType | undefined>(undefined)
 
-    const updateRooms = (rooms: RoomType[]) => {
+    const updateRooms = (rooms: RoomsType) => {
         setRooms(rooms)
     }
 
+    useEffect(() => {
+        console.log('====> ', { rooms });
+    }, [rooms])
+
     const updateSelectedRoom = (roomId: string) => {
-        const room = rooms.find(rm => rm.id === roomId) || undefined;
+        console.log('====> ', { roomId });
+        const room = rooms.joined.find(rm => rm.id === roomId) || undefined;
         setCurrentRoom(room)
     };
 
     const joinRoom = (room: RoomType) => {
-        setRooms([
-            ...rooms,
-            room
-        ])
+        console.log('======> ', { room });
     };
 
     const leaveRoom = (roomId: string) => {
-        const updatedRooms = rooms.filter(rm => rm.id !== roomId) || undefined;
-        setRooms(updatedRooms)
+        console.log('====> ', { roomId });
     };
 
     return (

@@ -25,6 +25,8 @@ func InitMySQL(cfg *config.Config) *gorm.DB {
 		&models.DraftUser{},
 		&models.Room{},
 		&models.RoomMember{},
+		&models.InvitedMember{},
+		&models.JoinRequest{},
 		&models.RoomStats{},
 		&models.Message{},
 	)

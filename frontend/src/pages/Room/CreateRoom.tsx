@@ -28,9 +28,15 @@ export default function CreateRoom() {
     useEffect(() => {
         if (data?.room) {
             const id = data.room.id;
-            const link = location.host + `/room/${id}`;
-            setInviteLink(link);
-            const newRooms = [...rooms, data.room]
+            // const link = location.host + `/room/${id}`;
+            setInviteLink(`/room/${id}`);
+            const newRooms = {
+                ...rooms,
+                joined: [
+                    ...rooms.joined,
+                    data.room
+                ]
+            }
             updateRooms(newRooms);
             updateSelectedRoom(id);
         }
@@ -231,7 +237,7 @@ export default function CreateRoom() {
                                         <button
                                             type="button"
                                             onClick={addInvitedUser}
-                                            className="inline-flex items-center px-3 py-2 border border-l-0 border-gray-300 rounded-r-md bg-gray-50 text-gray-700 hover:bg-gray-100"
+                                            className="inline-flex cursor-pointer items-center px-3 py-2 border border-l-0 border-gray-300 rounded-r-md bg-gray-50 text-gray-700 hover:bg-gray-100"
                                         >
                                             <span className="material-symbols-rounded">
                                                 add
@@ -261,7 +267,7 @@ export default function CreateRoom() {
                                                         <button
                                                             type="button"
                                                             onClick={() => removeInvitedUser(email)}
-                                                            className="text-blue-700 hover:text-blue-900"
+                                                            className="text-blue-700 cursor-pointer hover:text-blue-900"
                                                         >
                                                             <span className="material-symbols-rounded">
                                                                 close
@@ -308,7 +314,7 @@ export default function CreateRoom() {
                                         <button
                                             type="button"
                                             onClick={togglePasswordVisibility}
-                                            className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-600"
+                                            className="absolute cursor-pointer inset-y-0 right-0 pr-3 flex items-center text-gray-600"
                                         >
                                             {formData.showPassword ? (
                                                 <span className="material-symbols-rounded">
@@ -329,7 +335,7 @@ export default function CreateRoom() {
                             type="button"
                             disabled={loading || Boolean(error)}
                             onClick={handleCreateRoom}
-                            className="w-full flex items-center justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="w-full flex cursor-pointer items-center justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
                         >
                             Create Room
                             <span className="material-symbols-rounded">
@@ -389,7 +395,7 @@ export default function CreateRoom() {
                                 <button
                                     type="button"
                                     onClick={copyInviteLink}
-                                    className="inline-flex items-center px-3 py-2 border border-l-0 border-gray-300 rounded-r-md bg-gray-50 text-gray-700 hover:bg-gray-100"
+                                    className="inline-flex cursor-pointer items-center px-3 py-2 border border-l-0 border-gray-300 rounded-r-md bg-gray-50 text-gray-700 hover:bg-gray-100"
                                 >
                                     {linkCopied ? 'Copied!' : (
                                         <span className="material-symbols-rounded">
@@ -429,14 +435,14 @@ export default function CreateRoom() {
                             <button
                                 type="button"
                                 onClick={() => setInviteLink('')}
-                                className="flex-1 py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                                className="flex-1 py-2 cursor-pointer px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                             >
                                 Create Another Room
                             </button>
                             <button
                                 type="button"
                                 onClick={handleJoinRoom}
-                                className="flex-1 py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                                className="flex-1 py-2 cursor-pointer px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                             >
                                 Join Now
                             </button>
