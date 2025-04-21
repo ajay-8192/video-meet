@@ -21,8 +21,8 @@ type Room struct {
 
 type RoomMember struct {
 	ID        string    `json:"id" gorm:"primaryKey,index"`
-	RoomID    string    `json:"roomId" gorm:"not null"`
-	UserID    string    `json:"userId" gorm:"not null"`
+	RoomID    string    `json:"roomId" gorm:"not null;index:idx_room_user,unique"`
+	UserID    string    `json:"userId" gorm:"not null;index:idx_room_user,unique"`
 	Role      string    `json:"role" gorm:"default:member"`
 	JoinedAt  time.Time `json:"joinedAt"`
 	CreatedAt time.Time `json:"createdAt"`
@@ -31,8 +31,8 @@ type RoomMember struct {
 
 type InvitedMember struct {
 	ID        string    `json:"id" gorm:"primaryKey,index"`
-	RoomID    string    `json:"roomId" gorm:"not null"`
-	Email     string    `json:"email" gorm:"not null"`
+	RoomID    string    `json:"roomId" gorm:"not null;index:idx_room_user,unique"`
+	Email     string    `json:"email" gorm:"not null;index:idx_room_user,unique"`
 	Status    string    `json:"status" gorm:"default:pending"` // pending, accepted, rejected
 	InvitedBy string    `json:"invitedBy" gorm:"not null"`
 	CreatedAt time.Time `json:"createdAt"`
@@ -41,8 +41,8 @@ type InvitedMember struct {
 
 type JoinRequest struct {
 	ID        string    `json:"id" gorm:"primaryKey,index"`
-	RoomID    string    `json:"roomId" gorm:"not null"`
-	UserID    string    `json:"userId" gorm:"not null"`
+	RoomID    string    `json:"roomId" gorm:"not null;index:idx_room_user,unique"`
+	UserID    string    `json:"userId" gorm:"not null;index:idx_room_user,unique"`
 	Status    string    `json:"status" gorm:"default:pending"` // pending, approved, rejected
 	Message   string    `json:"message"`
 	CreatedAt time.Time `json:"createdAt"`
@@ -51,7 +51,7 @@ type JoinRequest struct {
 
 type RoomStats struct {
 	ID                string    `json:"id" gorm:"primaryKey,index"`
-	RoomID            string    `json:"roomId" gorm:"not null"`
+	RoomID            string    `json:"roomId" gorm:"not null;index"`
 	TotalParticipants int       `json:"totalParticipants" gorm:"not null"`
 	AverageDuration   int       `json:"averageDuration" gorm:"not null"` // In seconds
 	TotalMeetings     int       `json:"totalMeetings" gorm:"not null"`

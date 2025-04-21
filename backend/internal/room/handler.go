@@ -75,8 +75,9 @@ func (r *RoomHander) ListRooms(ctx *gin.Context) {
 
 	// Get different types of rooms concurrently
 	type roomResult struct {
-		rooms []models.Room
-		err   error
+		Rooms          []models.Room
+		InvitedRooms   []InvitedInfo
+		Err            error
 	}
 
 	// Create channels for each room type
@@ -88,22 +89,22 @@ func (r *RoomHander) ListRooms(ctx *gin.Context) {
 	// Launch goroutines for each room type
 	go func() {
 		rooms, err := r.server.ListRooms(userId)
-		joinedChan <- roomResult{rooms, err}
+		joinedChan <- roomResult{Rooms: rooms, Err: err}
 	}()
 
 	go func() {
-		rooms, err := r.server.InvitedRooms(user.Email)
-		invitedChan <- roomResult{rooms, err}
+		invitedRooms, err := r.server.InvitedRooms(user.Email)
+		invitedChan <- roomResult{Rooms: nil, InvitedRooms: invitedRooms, Err: err}
 	}()
 
 	go func() {
 		rooms, err := r.server.PendingRequestRooms(userId)
-		requestChan <- roomResult{rooms, err}
+		requestChan <- roomResult{Rooms: rooms, Err: err}
 	}()
 
 	go func() {
 		rooms, err := r.server.PublicRooms(offset, limit, userId)
-		publicChan <- roomResult{rooms, err}
+		publicChan <- roomResult{Rooms: rooms, Err: err}
 	}()
 
 	// Collect results
@@ -114,55 +115,60 @@ func (r *RoomHander) ListRooms(ctx *gin.Context) {
 
 	// Handle errors and set default empty slices
 	joinedRooms := []models.Room{}
-	if joinedResult.err != nil {
-		if !errors.Is(joinedResult.err, gorm.ErrRecordNotFound) {
+	if joinedResult.Err != nil {
+		if !errors.Is(joinedResult.Err, gorm.ErrRecordNotFound) {
 			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch joined rooms"})
 			return
 		}
 	} else {
-		joinedRooms = joinedResult.rooms
+		joinedRooms = joinedResult.Rooms
 	}
 
-	invitedRooms := []models.Room{}
-	if invitedResult.err != nil {
-		if !errors.Is(invitedResult.err, gorm.ErrRecordNotFound) {
+	invitedRooms := []InvitedInfo{}
+	if invitedResult.Err != nil {
+		if !errors.Is(invitedResult.Err, gorm.ErrRecordNotFound) {
 			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch invited rooms"})
 			return
 		}
 	} else {
-		invitedRooms = invitedResult.rooms
+		invitedRooms = invitedResult.InvitedRooms
 	}
 
 	requestRooms := []models.Room{}
-	if requestResult.err != nil {
-		if !errors.Is(requestResult.err, gorm.ErrRecordNotFound) {
+	if requestResult.Err != nil {
+		if !errors.Is(requestResult.Err, gorm.ErrRecordNotFound) {
 			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch request rooms"})
 			return
 		}
 	} else {
-		requestRooms = requestResult.rooms
+		requestRooms = requestResult.Rooms
 	}
 
 	publicRooms := []models.Room{}
-	if publicResult.err != nil {
-		if !errors.Is(publicResult.err, gorm.ErrRecordNotFound) {
+	if publicResult.Err != nil {
+		if !errors.Is(publicResult.Err, gorm.ErrRecordNotFound) {
 			ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch public rooms"})
 			return
 		}
 	} else {
-		publicRooms = publicResult.rooms
+		publicRooms = publicResult.Rooms
 	}
 
-	rooms := map[string][]models.Room{
-		"joined":  joinedRooms,
-		"invited": invitedRooms,
-		"pending": requestRooms,
-		"public":  publicRooms,
-	}
+	// rooms := map[string][]interface{
+	// 	"joined":  joinedRooms,
+	// 	"invited": invitedRooms,
+	// 	"pending": requestRooms,
+	// 	"public":  publicRooms,
+	// }
 
 	ctx.JSON(http.StatusOK, gin.H{
 		"message": "Fetch rooms successfully",
-		"rooms":   rooms,
+		"rooms":   gin.H{
+			"joined":  joinedRooms,
+			"invited": invitedRooms,
+			"pending": requestRooms,
+			"public":  publicRooms,
+		},
 	})
 }
 
@@ -180,6 +186,14 @@ func (r *RoomHander) GetRoom(ctx *gin.Context) {
 		"message": "Fetched room details",
 		"room":    room,
 	})
+}
+
+func (r *RoomHander) UpdateRoom(ctx *gin.Context) {
+	
+}
+
+func (r *RoomHander) DeleteRoom(ctx *gin.Context) {
+
 }
 
 type RequestJoinRequest struct {
@@ -218,6 +232,38 @@ func (r *RoomHander) RequestJoin(ctx *gin.Context) {
 
 	// Handle any other errors
 	ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+}
+
+// Cancel Request
+func (r *RoomHander) CancelRequest(ctx *gin.Context) {
+	roomId := ctx.Param("id")
+	userId := ctx.GetString("userId")
+
+	_, err := r.server.GetRoomById(roomId)
+
+	if err == nil {
+
+		if err := r.server.CancelRequest(roomId, userId); err != nil {
+			ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
+
+		ctx.JSON(http.StatusOK, gin.H{"message": "Joined room successfully"})
+		return
+	}
+
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		ctx.JSON(http.StatusNotFound, gin.H{"error": "Room not found"})
+		return
+	}
+
+	// Handle any other errors
+	ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+}
+
+// Join Room Request
+func (r *RoomHander) JoinRoomRequest(ctx *gin.Context) {
+
 }
 
 // Join room
@@ -274,6 +320,10 @@ func (r *RoomHander) LeaveRoom(ctx *gin.Context) {
 
 // Invite to room
 func (r *RoomHander) InviteRoom(ctx *gin.Context) {
+
+}
+
+func (r *RoomHander) CancelInvite(ctx *gin.Context) {
 
 }
 

@@ -87,10 +87,14 @@ func (r *RoomService) GetRoomById(roomId string) (*models.Room, error) {
 func (r *RoomService) ListRooms(userId string) ([]models.Room, error) {
 	var rooms []models.Room
 
+	subQuery := r.db.
+		Model(&models.RoomMember{}).
+		Select("room_id").
+		Where("user_id = ?", userId)
+
 	if err := r.db.
-		Joins("JOIN room_members ON rooms.id = room_members.room_id").
-		Where("room_members.user_id = ? OR rooms.created_by = ?", userId, userId).
-		Select("DISTINCT rooms.*").
+		Model(&models.Room{}).
+		Where("id IN (?) OR created_by = ?", subQuery, userId).
 		Find(&rooms).Error; err != nil {
 		return nil, err
 	}
@@ -98,19 +102,75 @@ func (r *RoomService) ListRooms(userId string) ([]models.Room, error) {
 	return rooms, nil
 }
 
-func (r *RoomService) InvitedRooms(email string) ([]models.Room, error) {
-	var rooms []models.Room
+type InvitedInfo struct {
+	Room models.Room
+	InvitedByEmail string
+	InvitedByName  string
+}
 
-	if err := r.db.
-		Joins("JOIN invited_members ON rooms.id = invited_members.room_id").
-		Joins("JOIN users ON invited_members.invited_by = users.id").
-		Where("invited_members.email = ? AND invited_members.status = ?", email, "pending").
-		Select("rooms.*, users.email as invited_by_email, users.first_name as invited_by_name").
-		Find(&rooms).Error; err != nil {
+func (r *RoomService) InvitedRooms(email string) ([]InvitedInfo, error) {
+	var result []InvitedInfo
+
+	var invites []models.InvitedMember
+	if err := r.db.Where("email = ? AND status = ?", email, "pending").Find(&invites).Error; err != nil {
 		return nil, err
 	}
 
-	return rooms, nil
+	if len(invites) == 0 {
+		return []InvitedInfo{}, nil
+	}
+
+	roomIDs := make([]string, 0, len(invites))
+	inviterMap := make(map[string]string)
+
+	for _, invite := range invites {
+		roomIDs = append(roomIDs, invite.RoomID)
+		inviterMap[invite.RoomID] = invite.InvitedBy
+	}
+
+	var rooms []models.Room
+	if err := r.db.Where("id IN ?", roomIDs).Find(&rooms).Error; err != nil {
+		return nil, err
+	}
+
+	inviterIDs := make([]string, 0, len(inviterMap))
+	for _, inviterId := range inviterMap {
+		inviterIDs = append(inviterIDs, inviterId)
+	}
+
+	var users []models.User
+	if err := r.db.
+		Where("id IN ?", inviterIDs).
+		Find(&users).Error; err != nil {
+		return nil, err
+	}
+
+	userMap := make(map[string]models.User)
+	for _, u := range users {
+		userMap[u.ID] = u
+	}
+
+	for _, room := range rooms {
+		inviterID := inviterMap[room.ID]
+		user := userMap[inviterID]
+
+		result = append(result, InvitedInfo{
+			Room:           room,
+			InvitedByEmail: user.Email,
+			InvitedByName:  user.FirstName,
+		})
+	}
+
+	// if err := r.db.
+	// 	Joins("JOIN invited_members ON rooms.id = invited_members.room_id").
+	// 	Joins("JOIN users ON invited_members.invited_by = users.id").
+	// 	Where("invited_members.email = ? AND invited_members.status = ?", email, "pending").
+	// 	Select("rooms.*, users.email as invited_by_email, users.first_name as invited_by_name").
+	// 	Find(&rooms).Error; err != nil {
+	// 	return nil, err
+	// }
+
+	return result, nil
 }
 
 func (r *RoomService) PendingRequestRooms(userId string) ([]models.Room, error) {
@@ -133,6 +193,8 @@ func (r *RoomService) PublicRooms(offset, limit int, userId string) ([]models.Ro
 	if err := r.db.
 		Where("is_private = ?", false).
 		Where("id NOT IN (SELECT room_id FROM room_members WHERE user_id = ?)", userId).         // Exclude rooms where user is a member
+		Where("id NOT IN (SELECT room_id FROM join_requests WHERE user_id = ?)", userId).       // Exclude rooms where user has pending requests
+		Where("id NOT IN (SELECT room_id FROM invited_members WHERE email = (SELECT email FROM users WHERE id = ?))", userId). // Exclude rooms where user is invited
 		Order("created_at DESC").                                                                // Sort by most recently created first
 		Order("(SELECT COUNT(*) FROM room_members WHERE room_members.room_id = rooms.id) DESC"). // Then by number of members
 		Order("max_users ASC").                                                                  // Finally by max users (lower first)
@@ -176,6 +238,16 @@ func (r *RoomService) RequestJoin(roomId, userId, message string) error {
 	}
 
 	if err := r.db.Create(&request).Error; err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (r *RoomService) CancelRequest(roomId, userId string) error {
+	var request models.JoinRequest
+
+	if err := r.db.Where("user_id = ? and room_id = ?", userId, roomId).Delete(&request).Error; err != nil {
 		return err
 	}
 

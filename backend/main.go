@@ -80,11 +80,37 @@ func main() {
 
 		roomRoutes := protectedRoutes.Group("/rooms")
 		{
+			// Get Rooms
 			roomRoutes.GET("", roomHandler.ListRooms)
+			
+			// Create Room
 			roomRoutes.POST("/create", roomHandler.CreateRoom)
+
+			// Get Room Details
 			roomRoutes.GET("/:id", roomHandler.GetRoom)
-			roomRoutes.GET("/:id/join", roomHandler.JoinRoom)
+
+			// Update Room Details
+			roomRoutes.POST("/:id", roomHandler.UpdateRoom)
+
+			// Delete Room in case if user is admin
+			roomRoutes.POST("/:id/delete", roomHandler.DeleteRoom)
+
+			// Leave already joined Room
 			roomRoutes.GET("/:id/leave", roomHandler.LeaveRoom)
+			
+			// Cancel Join request
+			roomRoutes.POST("/:id/join/cancel", roomHandler.CancelRequest)
+
+			// Join Room Request
+			roomRoutes.POST("/:id/join/request", roomHandler.JoinRoomRequest)
+
+			// Join Room
+			roomRoutes.POST("/:id/join", roomHandler.JoinRoom)
+
+			// Cancel Invitation
+			roomRoutes.POST("/:id/invite/cancel", roomHandler.CancelInvite)
+
+			// Invite users to group
 			roomRoutes.POST("/:id/invite", roomHandler.InviteRoom)
 			// roomRoutes.PUT("/:id", roomHandler.UpdateRoomSettings)
 			// roomRoutes.PATCH("/:id/status", roomHandler.UpdateRoomStatus)

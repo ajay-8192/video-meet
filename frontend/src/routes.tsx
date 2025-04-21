@@ -1,4 +1,4 @@
-import { createBrowserRouter } from "react-router-dom";
+import { createBrowserRouter, Outlet } from "react-router-dom";
 
 // Auth Components
 import Register from "./pages/Auth/Register";
@@ -39,8 +39,18 @@ const routes = createBrowserRouter([
                         Component: RoomList
                     },
                     {
-                        path: "rooms",
-                        Component: RoomList
+                        path: "",
+                        children: [
+                            {
+                                path: "rooms",
+                                Component: RoomList
+                            },
+                            {
+                                path: "rooms/:selectTab",
+                                Component: RoomList
+                            }
+                        ]
+                        // Component: RoomList
                     },
                     {
                         path: "rooms/create",

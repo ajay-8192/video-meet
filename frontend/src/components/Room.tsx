@@ -1,4 +1,6 @@
 import { useNavigate } from "react-router-dom";
+import useRoomAPIRequest from "../hooks/useRoomAPIRequest";
+import { formatToLocalDDMMYYHM } from "../utils/helper";
 
 type RoomProps = {
     room: any;
@@ -8,28 +10,31 @@ type RoomProps = {
 const Room: React.FC<RoomProps> = ({ room, type }) => {
 
     const navigate = useNavigate();
+    const { handleAcceptInvite, handleDeclineInvite, handleJoinRoom, handleCancelRequest } = useRoomAPIRequest();
 
     const navigateToRoom = () => {
-        // In a real app, this would navigate to the room detail page
-        alert(`Navigating to room: ${room.name}`);
-        navigate(`/room/${room.id}`)
+        navigate(`/room/${room.id}`);
+        return;
     };
 
     const acceptInvite = (e: any, roomId: string) => {
         e.stopPropagation();
         alert(`Accepted invite to room ${roomId}`);
+        handleAcceptInvite(roomId);
         // In a real app, call an API to accept the invitation
     };
 
     const declineInvite = (e: any, roomId: string) => {
         e.stopPropagation();
         alert(`Declined invite to room ${roomId}`);
+        handleDeclineInvite(roomId);
         // In a real app, call an API to decline the invitation
     };
 
     const joinRoom = (e: any, roomId: string) => {
         e.stopPropagation();
         alert(`Joining room ${roomId}`);
+        handleJoinRoom(roomId);
         // In a real app, call an API to join the room
     };
 
@@ -37,6 +42,7 @@ const Room: React.FC<RoomProps> = ({ room, type }) => {
         e.stopPropagation();
         alert(`Cancelled request to join room ${roomId}`);
         // In a real app, call an API to cancel the join request
+        handleCancelRequest(roomId);
     };
 
     return (
@@ -76,7 +82,7 @@ const Room: React.FC<RoomProps> = ({ room, type }) => {
                         )}
 
                         {type === 'invited' && (
-                            <div>Invited by {room.invited_by_email} • {room.createdAt}</div>
+                            <div>Invited by {room.InvitedByName || room.InvitedByEmail} • {formatToLocalDDMMYYHM(room.createdAt)}</div>
                         )}
 
                         {type === 'request' && (
