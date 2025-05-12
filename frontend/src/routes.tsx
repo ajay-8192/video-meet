@@ -1,72 +1,59 @@
 import { createBrowserRouter, Outlet } from "react-router-dom";
-
-// Auth Components
-import Register from "./pages/Auth/Register";
-import Login from "./pages/Auth/Login";
-import VerifyAccount from "./pages/Auth/VerifyAccount";
-import VerifyOTP from "./pages/Auth/VerifyOTP";
-import RoomList from "./pages/Room/RoomList";
-import RoomDetailPage from "./pages/Room/RoomDetail";
-import AuthRoot from "./pages/Auth/AuthRoot";
-import CreateRoom from "./pages/Room/CreateRoom";
+import LoginPage from "./pages/Auth/LoginPage";
+import RegisterPage from "./pages/Auth/RegisterPage";
+import VerifyAccountPage from "./pages/Auth/VerifyAccountPage";
+import VerifyOTPPage from "./pages/Auth/VerifyOTPPage";
+// import AuthRoot from "./pages/AuthRoot";
+import RoomListPage from "./pages/Room/RoomListPage";
+import RoomCreatePage from "./pages/Room/RoomCreatePage";
+import RoomRoot from "./pages/RoomRoot";
 
 const routes = createBrowserRouter([
     {
-        path: "",
-        children: [
-            {
-                path: "/register",
-                Component: Register
-            },
-            {
-                path: "/login",
-                Component: Login
-            },
-            {
-                path: "/verify-account",
-                Component: VerifyAccount
-            },
-            {
-                path: "/verify-otp",
-                Component: VerifyOTP
-            },
-            {
-                path: "/",
-                Component: AuthRoot,
-                children: [
-                    {
-                        path: "dashboard?",
-                        Component: RoomList
-                    },
-                    {
-                        path: "",
-                        children: [
-                            {
-                                path: "rooms",
-                                Component: RoomList
-                            },
-                            {
-                                path: "rooms/:selectTab",
-                                Component: RoomList
-                            }
-                        ]
-                        // Component: RoomList
-                    },
-                    {
-                        path: "rooms/create",
-                        Component: CreateRoom
-                    },
-                    {
-                        path: "room/:roomId",
-                        Component: RoomDetailPage
-                    }
-                ]
-            },
-        ]
+        path: "login",
+        Component: LoginPage
     },
     {
-        path: "*",
-        element: <center>Page Not Found</center>
+        path: "register",
+        Component: RegisterPage
+    },
+    {
+        path: "verify-account",
+        Component: VerifyAccountPage
+    },
+    {
+        path: "verify-otp",
+        Component: VerifyOTPPage
+    },
+    // Room Routes
+    {
+        path: "",
+        Component: RoomRoot,
+        children: [
+            {
+                path: "room/create",
+                Component: RoomCreatePage
+            },
+            {
+                path: "room/list",
+                Component: RoomListPage
+            },
+            {
+                path: "",
+                element: <Outlet />,
+                children: [
+                    {
+                        path: "room/:roomId/chat"
+                    },
+                    {
+                        path: "room/:roomId/video"
+                    },
+                    {
+                        path: "room/:roomId/audio"
+                    }
+                ]
+            }
+        ]
     }
 ]);
 

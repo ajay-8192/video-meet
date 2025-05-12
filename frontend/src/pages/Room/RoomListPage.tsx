@@ -1,38 +1,34 @@
-import useApiRequest from "../../hooks/useAPIRequest";
-import { construct_api_urls } from "../../constants/api";
 import { useEffect, useState } from "react";
-import { useAuth } from "../../context/AuthContext";
 import { useRoom } from "../../context/RoomContext";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import Room from "../../components/Room";
+import { useRoomService } from "../../services/roomService";
 
-const RoomList: React.FC = () => {
+const RoomListPage: React.FC = () => {
 
-    const { user } = useAuth();
-    const { updateRooms, rooms } = useRoom();
+    const { rooms, updateRooms } = useRoom();
     const navigate = useNavigate();
-    const { loading, error, data, refetch: fetchRooms } = useApiRequest(construct_api_urls.listRooms());
+
+    const { search } = useLocation();
+    const query = new URLSearchParams(search);
+    const roomType = query.get("roomType") || "";
+
+    const { data, handleFetchRooms } = useRoomService();
 
     const [searchQuery, setSearchQuery] = useState("");
-    const [activeTab, setActiveTab] = useState('myRooms');
+    const [activeTab, setActiveTab] = useState(roomType || 'joined');
 
     useEffect(() => {
-        if (user?.id) {
-            fetchRooms(construct_api_urls.listRooms(), {
-                method: "GET",
-                credentials: "include",
-                headers: { 'Content-Type': 'application/json' },
-            })
-        }
-    }, [user])
+        handleFetchRooms({ roomType: activeTab })
+    }, [activeTab])
 
     useEffect(() => {
+        console.log('===> 22:', data);            
         if (data?.rooms) {
-            updateRooms(data.rooms);
+            updateRooms(data?.rooms)
         }
     }, [data])
 
-    // Filter rooms based on search query
     const filterRooms = (roomsList: any) => {
         if (!searchQuery) return roomsList;
 
@@ -49,7 +45,7 @@ const RoomList: React.FC = () => {
 
     const tabs = [
         {
-            id: 'myRooms',
+            id: 'joined',
             label: 'My Rooms',
             icon: <span className="material-symbols-rounded text-blue-500 !text-xl mr-2">
                 group
@@ -58,7 +54,7 @@ const RoomList: React.FC = () => {
             badge: rooms.joined.reduce((acc: number, room: any) => acc + room?.unreadMessages, 0)
         },
         {
-            id: 'invitedRooms',
+            id: 'invited',
             label: 'Invitations',
             icon: <span className="material-symbols-rounded text-amber-500 !text-xl mr-2">
                 notifications
@@ -67,7 +63,7 @@ const RoomList: React.FC = () => {
             badge: 0
         },
         {
-            id: 'joinRequests',
+            id: 'requestPending',
             label: 'Join Requests',
             icon: <span className="material-symbols-rounded text-purple-500 !text-xl mr-2">
                 person_add
@@ -76,30 +72,30 @@ const RoomList: React.FC = () => {
             badge: 0
         },
         {
-            id: 'publicRooms',
+            id: 'public',
             label: 'Public Rooms',
             icon: <span className="material-symbols-rounded text-blue-500 !text-xl mr-2">
                 group
             </span>,
-            count: rooms.public.length,
+            count: 0,
             badge: 0
         }
     ];
 
     const getCurrentTabContent = () => {
-        let activeRoomsList = undefined
+        let activeRoomsList: any[] = [];
 
         switch (activeTab) {
-            case "myRooms":
+            case "joined":
                 activeRoomsList = rooms.joined
                 break;
-            case "invitedRooms":
+            case "invited":
                 activeRoomsList = rooms.invited
                 break
-            case "joinRequests":
+            case "requestPending":
                 activeRoomsList = rooms.pending
                 break
-            case "publicRooms":
+            case "public":
                 activeRoomsList = rooms.public
                 break
             default:
@@ -111,12 +107,14 @@ const RoomList: React.FC = () => {
         if (currentRooms.length === 0) {
             return (
                 <div className="bg-gray-50 rounded-lg p-8 text-center text-gray-500">
-                    {activeTab === 'myRooms' && "You haven't joined any rooms yet."}
-                    {activeTab === 'invitedRooms' && "No pending invitations."}
-                    {activeTab === 'joinRequests' && "No pending join requests."}
-                    {activeTab === 'publicRooms' && "No public rooms available."}
+                    <div>
+                        {activeTab === 'joined' && "You haven't joined any rooms yet."}
+                        {activeTab === 'invited' && "No pending invitations."}
+                        {activeTab === 'requestPending' && "No pending join requests."}
+                        {activeTab === 'public' && "No public rooms available."}
+                    </div>
 
-                    {activeTab === 'publicRooms' && (
+                    {activeTab === 'public' && (
                         <button className="mt-4 bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
                             Create a Room
                         </button>
@@ -128,26 +126,21 @@ const RoomList: React.FC = () => {
         return currentRooms.map((room: any) => (
             <Room
                 key={room.id}
-                room={activeTab === "invitedRooms" ? { ...room, ...room.Room } : room}
+                room={activeTab === "invited" ? { ...room, ...room.Room } : room}
                 type={
-                    activeTab === 'myRooms' ? 'my' :
-                        activeTab === 'invitedRooms' ? 'invited' :
-                            activeTab === 'joinRequests' ? 'request' : 'public'
+                    activeTab === 'joined' ? 'my' :
+                        activeTab === 'invited' ? 'invited' :
+                            activeTab === 'requestPending' ? 'request' : 'public'
                 }
             />
         ));
-    };
-
-    if (loading) return <center>Loading...</center>
-
-    if (error) return <center>Error...</center>
+    }
 
     return (
         <div className="min-h-screen bg-gray-50">
             <div className="max-w-4xl mx-auto px-4 py-8">
                 <header className="mb-8">
-
-                    <div className="flex justify-between items-center mb-6">
+                <div className="flex justify-between items-center mb-6">
                         <h1 className="text-2xl font-bold">Rooms</h1>
                         <button
                             onClick={navigateToCreateRoom}
@@ -173,31 +166,6 @@ const RoomList: React.FC = () => {
                         />
                     </div>
 
-
-                    {/* <div className="flex justify-between items-center">
-                        <div className="relative flex-1 max-w-md">
-                            <span className="material-symbols-rounded absolute !text-lg left-3 top-1/2 transform -translate-y-1/2 text-gray-400">
-                                search
-                            </span>
-                            <input
-                                type="text"
-                                placeholder="Search rooms..."
-                                className="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                            />
-                        </div> */}
-
-                        {/* <button
-                            onClick={navigateToCreateRoom}
-                            className="bg-blue-500 text-white cursor-pointer px-4 py-2 rounded-lg hover:bg-blue-600 flex items-center ml-4"
-                        >
-                            <span className="material-symbols-rounded mr-2 !text-lg">
-                                add_circle
-                            </span>
-                            Create Room
-                        </button> */}
-                    {/* </div> */}
                     <div className="flex border-b">
                         {tabs.map((tab) => (
                             <button
@@ -227,57 +195,10 @@ const RoomList: React.FC = () => {
 
                 <main>
                     {getCurrentTabContent()}
-                    {/* <RoomSection
-                        title="My Rooms"
-                        icon={<span className="material-symbols-rounded text-blue-500 !text-xl">
-                            group
-                        </span>}
-                        emptyMessage="You haven't joined any rooms yet."
-                    >
-                        {filterRooms(rooms.joined).map((room: any) => (
-                            <Room key={room.id} room={room} type="my" />
-                        ))}
-                    </RoomSection>
-
-                    <RoomSection
-                        title="Invitations"
-                        icon={<span className="material-symbols-rounded text-amber-500 !text-xl">
-                            notifications
-                        </span>}
-                        emptyMessage="No pending invitations."
-                    >
-                        {filterRooms(rooms.invited).map((room: any) => (
-                            <Room key={room.id} room={{ ...room, ...room.Room }} type="invited" />
-                        ))}
-                    </RoomSection>
-
-                    <RoomSection
-                        title="Pending Join Requests"
-                        icon={<span className="material-symbols-rounded text-purple-500 !text-xl">
-                            person_add
-                        </span>}
-                        emptyMessage="No pending join requests."
-                    >
-                        {filterRooms(rooms.pending).map((room: any) => (
-                            <Room key={room.id} room={room} type="request" />
-                        ))}
-                    </RoomSection>
-
-                    <RoomSection
-                        title="Public Rooms"
-                        icon={<span className="material-symbols-rounded text-green-500 !text-xl">
-                            group
-                        </span>}
-                        emptyMessage="No public rooms available."
-                    >
-                        {filterRooms(rooms.public).map((room: any) => (
-                            <Room key={room.id} room={room} type="public" />
-                        ))}
-                    </RoomSection> */}
                 </main>
             </div>
         </div>
     );
 };
 
-export default RoomList;
+export default RoomListPage;

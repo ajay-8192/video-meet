@@ -1,7 +1,6 @@
 package room
 
 import (
-	"errors"
 	"time"
 	"video-chat/internal/models"
 
@@ -17,29 +16,33 @@ func NewRoomService(db *gorm.DB) *RoomService {
 	return &RoomService{db: db}
 }
 
-func (r *RoomService) CreateRoom(req CreateRoomRequest, userId string) (*models.Room, error) {
+func (s *RoomService) CreateRoom(req CreateRoomRequest, userId string) (*models.Room, error) {
+
+	tx := s.db.Begin()
+	if tx.Error != nil {
+		return nil, tx.Error
+	}
+
 	room := &models.Room{
-		ID:           uuid.New().String(),
-		Name:         req.Name,
-		Description:  req.Description,
-		IsPrivate:    req.IsPrivate,
-		MaxUsers:     req.MaxUsers,
-		CreatedBy:    userId,
-		CreatedAt:    time.Now(),
-		MembersCount: 1,
+		ID:              uuid.NewString(),
+		Name:            req.Name,
+		Description:     req.Description,
+		CreatedBy:       userId,
+		CreatedAt:       time.Now(),
+		IsPrivate:       req.IsPrivate,
+		MaxUsers:        req.MaxParticipants,
+		RequirePassword: req.IsPasswordProtected,
+		Password:        req.Password,
+		MembersCount:    1,
 	}
 
-	if req.Password != "" {
-		room.RequirePassword = true
-		room.Password = req.Password
-	}
-
-	if err := r.db.Create(room).Error; err != nil {
+	if err := tx.Create(&room).Error; err != nil {
+		tx.Rollback()
 		return nil, err
 	}
 
-	member := &models.RoomMember{
-		ID:        uuid.New().String(),
+	roomMember := &models.RoomMember{
+		ID:        uuid.NewString(),
 		RoomID:    room.ID,
 		UserID:    userId,
 		Role:      "admin",
@@ -48,51 +51,97 @@ func (r *RoomService) CreateRoom(req CreateRoomRequest, userId string) (*models.
 		UpdatedAt: time.Now(),
 	}
 
-	if err := r.db.Create(member).Error; err != nil {
+	if err := tx.Create(&roomMember).Error; err != nil {
+		tx.Rollback()
 		return nil, err
 	}
 
-	if req.IsPrivate && len(req.InviteUsers) > 0 {
-		invitedMembers := make([]models.InvitedMember, len(req.InviteUsers))
-		for i, email := range req.InviteUsers {
-			invitedMembers[i] = models.InvitedMember{
-				ID:        uuid.New().String(),
-				RoomID:    room.ID,
-				Email:     email,
-				Status:    "pending",
-				InvitedBy: userId,
-				CreatedAt: time.Now(),
-				UpdatedAt: time.Now(),
-			}
-		}
-
-		if err := r.db.CreateInBatches(invitedMembers, len(invitedMembers)).Error; err != nil {
-			return nil, err
-		}
-	}
-
-	return room, nil
-}
-
-func (r *RoomService) GetRoomById(roomId string) (*models.Room, error) {
-	var room *models.Room
-
-	if err := r.db.First(&room, "id = ?", roomId).Error; err != nil {
+	if err := tx.Commit().Error; err != nil {
 		return nil, err
 	}
 
 	return room, nil
 }
 
-func (r *RoomService) ListRooms(userId string) ([]models.Room, error) {
+func (s *RoomService) GetRoomMember(userId, roomId string) (*models.RoomMember, error) {
+	var roomMember *models.RoomMember
+
+	if err := s.db.Where("user_id = ? AND room_id = ?", userId, roomId).First(roomMember).Error; err != nil {
+		return nil, err
+	}
+
+	return roomMember, nil
+}
+
+func (s *RoomService) DeleteRoomMember(roomMember *models.RoomMember) error {
+	if err := s.db.Delete(roomMember).Error; err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (s *RoomService) DeleteRoom(roomId string) error {
+	tx := s.db.Begin()
+
+	// Delete Room Members
+	if err := tx.Where("room_id = ?", roomId).Delete(&models.RoomMember{}).Error; err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	// Delete invited members by roomId
+	if err := tx.Where("room_id = ?", roomId).Delete(&models.InvitedMember{}).Error; err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	// Delete Join request by roomId
+	if err := tx.Where("room_id = ?", roomId).Delete(&models.JoinRequest{}).Error; err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	// Delete Room Stats by roomId
+	if err := tx.Where("room_id = ?", roomId).Delete(&models.RoomStats{}).Error; err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	// Delete Message by roomId
+	if err := tx.Where("room_id = ?", roomId).Delete(&models.Message{}).Error; err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	// Delete Room by roomId
+	if err := tx.Where("id = ?", roomId).Delete(&models.Room{}).Error; err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	if err := tx.Commit().Error; err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	return nil
+}
+
+type invitedInfo struct {
+	models.Room
+	InvitedByEmail string
+	InvitedByName  string
+}
+
+func (s *RoomService) GetJoinedRooms(userId string) ([]models.Room, error) {
 	var rooms []models.Room
 
-	subQuery := r.db.
-		Model(&models.RoomMember{}).
+	subQuery := s.db.Model(&models.RoomMember{}).
 		Select("room_id").
 		Where("user_id = ?", userId)
 
-	if err := r.db.
+	if err := s.db.
 		Model(&models.Room{}).
 		Where("id IN (?) OR created_by = ?", subQuery, userId).
 		Find(&rooms).Error; err != nil {
@@ -102,22 +151,19 @@ func (r *RoomService) ListRooms(userId string) ([]models.Room, error) {
 	return rooms, nil
 }
 
-type InvitedInfo struct {
-	Room models.Room
-	InvitedByEmail string
-	InvitedByName  string
-}
+func (s *RoomService) GetInvitedRooms(email string) ([]invitedInfo, error) {
 
-func (r *RoomService) InvitedRooms(email string) ([]InvitedInfo, error) {
-	var result []InvitedInfo
+	var results []invitedInfo
 
 	var invites []models.InvitedMember
-	if err := r.db.Where("email = ? AND status = ?", email, "pending").Find(&invites).Error; err != nil {
+	if err := s.db.
+		Where("email = ? AND status = ?", email, "pending").
+		Find(&invites).Error; err != nil {
 		return nil, err
 	}
 
 	if len(invites) == 0 {
-		return []InvitedInfo{}, nil
+		return []invitedInfo{}, nil
 	}
 
 	roomIDs := make([]string, 0, len(invites))
@@ -129,7 +175,7 @@ func (r *RoomService) InvitedRooms(email string) ([]InvitedInfo, error) {
 	}
 
 	var rooms []models.Room
-	if err := r.db.Where("id IN ?", roomIDs).Find(&rooms).Error; err != nil {
+	if err := s.db.Where("id IN ?", roomIDs).Find(&rooms).Error; err != nil {
 		return nil, err
 	}
 
@@ -139,7 +185,7 @@ func (r *RoomService) InvitedRooms(email string) ([]InvitedInfo, error) {
 	}
 
 	var users []models.User
-	if err := r.db.
+	if err := s.db.
 		Where("id IN ?", inviterIDs).
 		Find(&users).Error; err != nil {
 		return nil, err
@@ -154,81 +200,118 @@ func (r *RoomService) InvitedRooms(email string) ([]InvitedInfo, error) {
 		inviterID := inviterMap[room.ID]
 		user := userMap[inviterID]
 
-		result = append(result, InvitedInfo{
+		results = append(results, invitedInfo{
 			Room:           room,
 			InvitedByEmail: user.Email,
 			InvitedByName:  user.FirstName,
 		})
 	}
 
-	// if err := r.db.
-	// 	Joins("JOIN invited_members ON rooms.id = invited_members.room_id").
-	// 	Joins("JOIN users ON invited_members.invited_by = users.id").
-	// 	Where("invited_members.email = ? AND invited_members.status = ?", email, "pending").
-	// 	Select("rooms.*, users.email as invited_by_email, users.first_name as invited_by_name").
-	// 	Find(&rooms).Error; err != nil {
-	// 	return nil, err
-	// }
-
-	return result, nil
+	return results, nil
 }
 
-func (r *RoomService) PendingRequestRooms(userId string) ([]models.Room, error) {
-	var rooms []models.Room
+func (s *RoomService) GetJoinRequestRooms(userId string) ([]models.Room, error) {
+	subQuery := s.db.Model(&models.JoinRequest{}).
+		Select("room_id").
+		Where("user_id = ? AND status = ?", userId, "pending")
 
-	if err := r.db.
-		Joins("JOIN join_requests ON rooms.id = join_requests.room_id").
-		Where("join_requests.user_id = ? AND join_requests.status = ?", userId, "pending").
-		Select("rooms.*").
-		Find(&rooms).Error; err != nil {
+	var rooms []models.Room
+	if err := s.db.Where("id IN (?)", subQuery).Find(&rooms).Error; err != nil {
 		return nil, err
 	}
 
 	return rooms, nil
 }
 
-func (r *RoomService) PublicRooms(offset, limit int, userId string) ([]models.Room, error) {
+func (s *RoomService) GetPublicRooms(userId string, limit, offset int) ([]models.Room, error) {
 	var rooms []models.Room
 
-	if err := r.db.
-		Where("is_private = ?", false).
-		Where("id NOT IN (SELECT room_id FROM room_members WHERE user_id = ?)", userId).         // Exclude rooms where user is a member
-		Where("id NOT IN (SELECT room_id FROM join_requests WHERE user_id = ?)", userId).       // Exclude rooms where user has pending requests
-		Where("id NOT IN (SELECT room_id FROM invited_members WHERE email = (SELECT email FROM users WHERE id = ?))", userId). // Exclude rooms where user is invited
-		Order("created_at DESC").                                                                // Sort by most recently created first
-		Order("(SELECT COUNT(*) FROM room_members WHERE room_members.room_id = rooms.id) DESC"). // Then by number of members
-		Order("max_users ASC").                                                                  // Finally by max users (lower first)
+	if err := s.db.
+		Model(&models.Room{}).
+		Where(`
+			is_private = FALSE AND 
+			NOT EXISTS (SELECT 1 FROM room_members WHERE room_members.room_id = rooms.id AND user_id = ?) AND
+			NOT EXISTS (SELECT 1 FROM join_requests WHERE join_requests.room_id = rooms.id AND user_id = ?) AND
+			NOT EXISTS (
+				SELECT 1 FROM invited_members 
+				WHERE invited_members.room_id = rooms.id 
+				AND email = (SELECT email FROM users WHERE id = ?)
+			)
+		`, userId, userId, userId).
+		Order("created_at DESC").
+		Order("(SELECT COUNT(*) FROM room_members WHERE room_members.room_id = rooms.id) DESC").
+		Order("max_users ASC").
 		Offset(offset).
 		Limit(limit).
 		Find(&rooms).Error; err != nil {
 		return nil, err
 	}
-
 	return rooms, nil
 }
 
-func (r *RoomService) JoinRoom(roomId, userId string) error {
-	member := models.RoomMember{
-		ID:       uuid.NewString(),
-		RoomID:   roomId,
-		UserID:   userId,
-		Role:     "member",
-		JoinedAt: time.Now(),
+func (s *RoomService) GetRoomInvite(userId, email, roomId string) (*models.InvitedMember, error) {
+	var invite *models.InvitedMember
+	if err := s.db.Where("(invited_by = ? OR email = ?) AND room_id = ?", userId, email, roomId).First(&invite).Error; err != nil {
+		return nil, err
 	}
 
-	if err := r.db.Model(&models.Room{}).Where("id = ?", roomId).Update("members_count", gorm.Expr("members_count + ?", 1)).Error; err != nil {
+	return invite, nil
+}
+
+func (s *RoomService) CancelInvite(invitedMember *models.InvitedMember) error {
+	if err := s.db.Delete(invitedMember).Error; err != nil {
 		return err
 	}
 
-	if err := r.db.Create(&member).Error; err != nil {
-		return err
-	}
 	return nil
 }
 
-func (r *RoomService) RequestJoin(roomId, userId, message string) error {
-	request := models.JoinRequest{
-		ID:        uuid.New().String(),
+func (s *RoomService) AcceptRoomInvite(userId, roomId string, invitee *models.InvitedMember) error {
+	roomMember := &models.RoomMember{
+		ID:        uuid.NewString(),
+		RoomID:    roomId,
+		UserID:    userId,
+		JoinedAt:  time.Now(),
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+
+	tx := s.db.Begin()
+
+	if err := tx.Create(roomMember).Error; err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	if err := tx.Delete(invitee).Error; err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	if err := tx.Model(&models.Room{}).Where("id = ?", roomId).Update("members_count", gorm.Expr("members_count + ?", 1)).Error; err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	if err := tx.Commit().Error; err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	return nil
+}
+
+func (s *RoomService) DeclineInvitaion(invitee *models.InvitedMember) error {
+	if err := s.db.Delete(invitee).Error; err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (s *RoomService) AddJoinRequest(userId, roomId, message string) (*models.JoinRequest, error) {
+	joinRequest := &models.JoinRequest{
+		ID:        uuid.NewString(),
 		RoomID:    roomId,
 		UserID:    userId,
 		Status:    "pending",
@@ -237,55 +320,88 @@ func (r *RoomService) RequestJoin(roomId, userId, message string) error {
 		UpdatedAt: time.Now(),
 	}
 
-	if err := r.db.Create(&request).Error; err != nil {
+	if err := s.db.Create(joinRequest).Error; err != nil {
+		return nil, err
+	}
+
+	return joinRequest, nil
+}
+
+func (s *RoomService) GetJoinRequest(userId, roomId string) (*models.JoinRequest, error) {
+	var joinRequest models.JoinRequest
+
+	if err := s.db.Where("user_id = ? AND room_id = ?", userId, roomId).First(&joinRequest).Error; err != nil {
+		return nil, err
+	}
+
+	return &joinRequest, nil
+}
+
+func (s *RoomService) CancelJoinReqest(joinRequest *models.JoinRequest) error {
+	if err := s.db.Delete(joinRequest).Error; err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func (r *RoomService) CancelRequest(roomId, userId string) error {
-	var request models.JoinRequest
+func (s *RoomService) getRoomDetails(roomId string) (*models.Room, error) {
+	var room *models.Room
 
-	if err := r.db.Where("user_id = ? and room_id = ?", userId, roomId).Delete(&request).Error; err != nil {
+	if err := s.db.Where("id = ?", roomId).First(room).Error; err != nil {
+		return nil, err
+	}
+
+	return room, nil
+}
+
+func (s *RoomService) updateRoomMemberCount(roomId string) error {
+	if err := s.db.Where("id = ?", roomId).Update("members_count", gorm.Expr("members_count + ?", 1)).Error; err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func (r *RoomService) LeaveRoom(roomId, userId string) error {
-	// First check if user is a member of the room
-	var member models.RoomMember
-	if err := r.db.Where("room_id = ? AND user_id = ?", roomId, userId).First(&member).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return errors.New("user is not a member of this room")
-		}
-		return err
-	}
-
-	// Begin transaction
-	tx := r.db.Begin()
-	if tx.Error != nil {
-		return tx.Error
-	}
-
-	// Delete the member
-	if err := tx.Delete(&member).Error; err != nil {
-		tx.Rollback()
-		return err
-	}
-
-	// Update room member count
-	if err := tx.Model(&models.Room{}).Where("id = ?", roomId).Update("members_count", gorm.Expr("members_count - ?", 1)).Error; err != nil {
-		tx.Rollback()
-		return err
-	}
-
-	// Commit transaction
-	if err := tx.Commit().Error; err != nil {
+func (s *RoomService) addMessage(message *models.Message) error {
+	if err := s.db.Create(message).Error; err != nil {
 		return err
 	}
 
 	return nil
+}
+
+func (s *RoomService) getMessageById(messageId string) (*models.Message, error) {
+	var message *models.Message
+	if err := s.db.Where("id = ?", messageId).First(message).Error; err != nil {
+		return nil, err
+	}
+
+	return message, nil
+}
+
+func (s *RoomService) editMessage(message *models.Message) error {
+	if err := s.db.Save(message).Error; err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (s *RoomService) deleteMessage(message *models.Message) error {
+	if err := s.db.Delete(message).Error; err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (s *RoomService) fetchMessages(roomId string, beforeTime time.Time, limit int) ([]models.Message, error) {
+	var messages []models.Message
+
+	if err := s.db.Where("room_id = ? AND created_at = ?", roomId, beforeTime).Order("created_at desc").Limit(limit).Find(&messages).Error; err != nil {
+		return nil, err
+	}
+
+	return messages, nil
 }

@@ -1,6 +1,6 @@
 import { useNavigate } from "react-router-dom";
-import useRoomAPIRequest from "../hooks/useRoomAPIRequest";
 import { formatToLocalDDMMYYHM } from "../utils/helper";
+import { useRoomService } from "../services/roomService";
 
 type RoomProps = {
     room: any;
@@ -10,7 +10,12 @@ type RoomProps = {
 const Room: React.FC<RoomProps> = ({ room, type }) => {
 
     const navigate = useNavigate();
-    const { handleAcceptInvite, handleDeclineInvite, handleJoinRoom, handleCancelRequest } = useRoomAPIRequest();
+    const {
+        loading,
+        handleSendJoinRequest,
+        handleFetchRooms,
+        handleCancelSendJoinRequest
+    } = useRoomService();
 
     const navigateToRoom = () => {
         navigate(`/room/${room.id}`);
@@ -20,29 +25,32 @@ const Room: React.FC<RoomProps> = ({ room, type }) => {
     const acceptInvite = (e: any, roomId: string) => {
         e.stopPropagation();
         alert(`Accepted invite to room ${roomId}`);
-        handleAcceptInvite(roomId);
+        // handleAcceptInvite(roomId);
         // In a real app, call an API to accept the invitation
     };
 
     const declineInvite = (e: any, roomId: string) => {
         e.stopPropagation();
         alert(`Declined invite to room ${roomId}`);
-        handleDeclineInvite(roomId);
+        // handleDeclineInvite(roomId);
         // In a real app, call an API to decline the invitation
     };
 
     const joinRoom = (e: any, roomId: string) => {
         e.stopPropagation();
-        alert(`Joining room ${roomId}`);
-        handleJoinRoom(roomId);
+        console.log(`Joining room ${roomId}`);
+        handleSendJoinRequest(roomId);
+        handleFetchRooms({ roomType: "public" });
+        // handleJoinRoom(roomId);
         // In a real app, call an API to join the room
     };
 
     const cancelRequest = (e: any, roomId: string) => {
         e.stopPropagation();
-        alert(`Cancelled request to join room ${roomId}`);
+        console.log(`Cancelled request to join room ${roomId}`);
+        handleCancelSendJoinRequest(roomId);
         // In a real app, call an API to cancel the join request
-        handleCancelRequest(roomId);
+        // handleCancelRequest(roomId);
     };
 
     return (
@@ -102,12 +110,14 @@ const Room: React.FC<RoomProps> = ({ room, type }) => {
                         <div className="flex space-x-2">
                             <button
                                 onClick={(e) => declineInvite(e, room.id)}
+                                disabled={loading}
                                 className="text-gray-500 hover:text-gray-700 text-sm border border-gray-300 rounded px-2 py-1"
                             >
                                 Decline
                             </button>
                             <button
                                 onClick={(e) => acceptInvite(e, room.id)}
+                                disabled={loading}
                                 className="bg-blue-500 text-white text-sm rounded px-3 py-1 hover:bg-blue-600"
                             >
                                 Accept
@@ -118,6 +128,7 @@ const Room: React.FC<RoomProps> = ({ room, type }) => {
                     {type === 'request' && (
                         <button
                             onClick={(e) => cancelRequest(e, room.id)}
+                            disabled={loading}
                             className="text-gray-500 hover:text-gray-700 text-sm border border-gray-300 rounded px-3 py-1"
                         >
                             Cancel
@@ -127,6 +138,7 @@ const Room: React.FC<RoomProps> = ({ room, type }) => {
                     {type === 'public' && (
                         <button
                             onClick={(e) => joinRoom(e, room.id)}
+                            disabled={loading}
                             className="bg-blue-500 text-white text-sm rounded px-3 py-1 hover:bg-blue-600 flex items-center"
                         >
                             <span className="material-symbols-rounded !text-[14px] mr-1">

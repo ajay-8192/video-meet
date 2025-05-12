@@ -1,10 +1,10 @@
-import { useEffect, useState } from 'react';
-import useApiRequest from '../../hooks/useAPIRequest';
-import { construct_api_urls } from '../../constants/api';
-import { useRoom } from '../../context/RoomContext';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useState } from "react";
+import { useRoomService } from "../../services/roomService";
+import { useNavigate } from "react-router-dom";
+import { useRoom } from "../../context/RoomContext";
 
-export default function CreateRoom() {
+const RoomCreatePage: React.FC = () => {
+
     const [formData, setFormData] = useState({
         roomName: '',
         description: '',
@@ -23,13 +23,15 @@ export default function CreateRoom() {
 
     const navigate = useNavigate();
     const { rooms, updateRooms, updateSelectedRoom } = useRoom();
-    const { loading, error, data, refetch: createRoom } = useApiRequest(construct_api_urls.createRoom())
+
+    const { loading, error, data, handleCreateRoom: createRoom } = useRoomService();
 
     useEffect(() => {
+        console.log('====> DATA:', { data });
         if (data?.room) {
             const id = data.room.id;
             // const link = location.host + `/room/${id}`;
-            setInviteLink(`/room/${id}`);
+            setInviteLink(`/room/${id}/chat`);
             const newRooms = {
                 ...rooms,
                 joined: [
@@ -95,15 +97,11 @@ export default function CreateRoom() {
             isPrivate: formData.isPrivate,
             maxUsers: formData.maxUsers,
             inviteUsers: formData.isPrivate ? invitedUsers : undefined,
+            passwordProtected: formData.passwordProtected,
             password: formData.passwordProtected ? formData.password : undefined
         }
 
-        createRoom(construct_api_urls.createRoom(), {
-            method: "POST",
-            credentials: "include",
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-        });
+        createRoom(payload)
 
         // In a real app, this would make an API call to create the room
         // For now, we'll just generate a fake invite link
@@ -198,9 +196,9 @@ export default function CreateRoom() {
                                         </span>
                                     </div>
                                     <div className="flex items-center text-blue-600">
-                                    <span className="material-symbols-rounded">
-                                        chat_bubble
-                                    </span>
+                                        <span className="material-symbols-rounded">
+                                            chat_bubble
+                                        </span>
                                     </div>
                                 </div>
                             </div>
@@ -358,9 +356,9 @@ export default function CreateRoom() {
                                 {formData.description && <p className="mt-1">{formData.description}</p>}
                                 <div className="mt-2 flex gap-4">
                                     <span className="flex items-center">
-                                    <span className="material-symbols-rounded">
-                                        person
-                                    </span>
+                                        <span className="material-symbols-rounded">
+                                            person
+                                        </span>
                                         Max: {formData.maxUsers}
                                     </span>
                                     {formData.isPrivate && (
@@ -417,9 +415,9 @@ export default function CreateRoom() {
                                     <div className="mt-1 text-sm text-gray-600">
                                         {invitedUsers.map((email, index) => (
                                             <div key={index} className="flex items-center">
-                                                    <span className="material-symbols-rounded">
-                                                        check
-                                                    </span>
+                                                <span className="material-symbols-rounded">
+                                                    check
+                                                </span>
                                                 <span>{email}</span>
                                             </div>
                                         ))}
@@ -452,4 +450,6 @@ export default function CreateRoom() {
             </div>
         </div>
     );
-}
+};
+
+export default RoomCreatePage;

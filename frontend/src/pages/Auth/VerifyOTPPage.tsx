@@ -1,43 +1,19 @@
-import { useLocation, useNavigate } from "react-router-dom";
-import useApiRequest from "../../hooks/useAPIRequest";
-import { construct_api_urls } from "../../constants/api";
-import { useRef, useState, useEffect } from "react";
-import { useAuth } from "../../context/AuthContext";
+import { useRef, useState } from "react";
+import { useLocation } from "react-router-dom";
+import { useAuthService } from "../../services/authServices";
 
-const VerifyOTP: React.FC = () => {
+const VerifyOTPPage: React.FC = () => {
+
     const [otpValues, setOtpValues] = useState<string[]>(['', '', '', '', '', '']);
-    const [timer, setTimer] = useState<number>(300); // 5 minutes in seconds
+    const [timer, setTimer] = useState<number>(300);
 
-    const { login } = useAuth();
+    const { loading, handleVerifyOTP: verifyOTP, handleSendOTP } = useAuthService();
+
     const { search } = useLocation();
     const query = new URLSearchParams(search);
-    const email = query.get("email");
+    const email = query.get("email") || "";
 
-    const { loading, data, refetch: verifyOTP } = useApiRequest(construct_api_urls.verifyOTP());
-    const { refetch: resendOTP } = useApiRequest(construct_api_urls.sendOTP());
-
-    const navigate = useNavigate();
     const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
-
-    useEffect(() => {
-        if (data?.user) {
-            login(data.user)
-        }
-    }, [data])
-
-    useEffect(() => {
-        const interval = setInterval(() => {
-            setTimer((prev) => (prev > 0 ? prev - 1 : 0));
-        }, 1000);
-
-        return () => clearInterval(interval);
-    }, []);
-
-    const formatTime = (seconds: number): string => {
-        const minutes = Math.floor(seconds / 60);
-        const remainingSeconds = seconds % 60;
-        return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
-    };
 
     const handleOtpChange = (index: number, value: string) => {
         if (/^[0-9]$/.test(value) || value === '') {
@@ -50,7 +26,13 @@ const VerifyOTP: React.FC = () => {
             }
         }
     };
-    
+
+    const formatTime = (seconds: number): string => {
+        const minutes = Math.floor(seconds / 60);
+        const remainingSeconds = seconds % 60;
+        return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+    };
+
     const handleKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
         if (e.key === 'Backspace' && !otpValues[index] && index > 0) {
             inputRefs.current[index - 1]?.focus();
@@ -85,24 +67,13 @@ const VerifyOTP: React.FC = () => {
     const handleVerifyOTP = async () => {
         const otp = otpValues.join('');
         if (otp.length === 6) {
-            await verifyOTP(construct_api_urls.verifyOTP(), {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include',
-                body: JSON.stringify({ otp, email }),
-            });
-            navigate('/dashboard');
+            verifyOTP({ email, otp });
         }
     };
 
     const handleResendOtp = async () => {
         if (timer === 0) {
-            await resendOTP(construct_api_urls.sendOTP(), {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include',
-                body: JSON.stringify({ email }),
-            });
+            handleSendOTP({ email })
             setTimer(300);
         }
     };
@@ -165,7 +136,7 @@ const VerifyOTP: React.FC = () => {
                 </div>
             </div>
         </div>
-    );
+    )
 };
 
-export default VerifyOTP;
+export default VerifyOTPPage;

@@ -38,7 +38,7 @@ func main() {
 	r := gin.Default()
 
 	// Add rate limiter
-	limiter := rate.NewLimiter(35, 10)
+	limiter := rate.NewLimiter(100, 10)
 
 	// Rate Limiter of 5sec with 10 request max
 	r.Use(func(ctx *gin.Context) {
@@ -53,14 +53,14 @@ func main() {
 	})
 
 	var ALLOWED_HOSTS []string = []string{"http://localhost:4173", "http://localhost:5173", "http://localhost:3000"}
-	config := cors.New(cors.Config{
+	corsConfig := cors.New(cors.Config{
 		AllowOrigins:     ALLOWED_HOSTS,
 		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowHeaders:     []string{"Content-Type", "Authorization", "Token"},
 		ExposeHeaders:    []string{"Origin", "Token", "Authorization"},
 		AllowCredentials: true,
 	})
-	r.Use(config)
+	r.Use(corsConfig)
 
 	r.GET("/health-status", func(ctx *gin.Context) {
 		ctx.JSON(http.StatusOK, gin.H{"message": "success"})
@@ -80,40 +80,50 @@ func main() {
 
 		roomRoutes := protectedRoutes.Group("/rooms")
 		{
-			// Get Rooms
-			roomRoutes.GET("", roomHandler.ListRooms)
+			// Get room Lists
+			roomRoutes.GET("", roomHandler.GetRoomsList)
 			
-			// Create Room
+			// Create Room and invite user in case of private
 			roomRoutes.POST("/create", roomHandler.CreateRoom)
 
-			// Get Room Details
-			roomRoutes.GET("/:id", roomHandler.GetRoom)
+			// Delete Room
+			roomRoutes.DELETE("/:roomId", roomHandler.DeleteRoom)
 
-			// Update Room Details
-			roomRoutes.POST("/:id", roomHandler.UpdateRoom)
+			// Leave Room
+			roomRoutes.POST("/:roomId/leave", roomHandler.LeaveRoom)
 
-			// Delete Room in case if user is admin
-			roomRoutes.POST("/:id/delete", roomHandler.DeleteRoom)
+			// Accept Invited Rooms
+			roomRoutes.POST("/:roomId/accept", roomHandler.AcceptRoomInvite)
 
-			// Leave already joined Room
-			roomRoutes.GET("/:id/leave", roomHandler.LeaveRoom)
+			// Decline Invitation
+			roomRoutes.POST("/:roomId/decline", roomHandler.DeclineInvitaion)
+
+			// Request to join room
+			roomRoutes.POST("/:roomId/join", roomHandler.RequestToJoin)
 			
-			// Cancel Join request
-			roomRoutes.POST("/:id/join/cancel", roomHandler.CancelRequest)
+			// Get Request to joined rooms
+			roomRoutes.GET("/:roomId/join-request", roomHandler.GetJoinRequest)
 
-			// Join Room Request
-			roomRoutes.POST("/:id/join/request", roomHandler.JoinRoomRequest)
+			// Cancel Join Request Room
+			roomRoutes.POST("/:roomId/cancel-join", roomHandler.CancelJoinReqest)
 
-			// Join Room
-			roomRoutes.POST("/:id/join", roomHandler.JoinRoom)
+			// Cancel invites
+			roomRoutes.POST("/:roomId/cancel-invite", roomHandler.CancelInvite)
+		}
 
-			// Cancel Invitation
-			roomRoutes.POST("/:id/invite/cancel", roomHandler.CancelInvite)
+		messageRoutes := protectedRoutes.Group("/messages")
+		{
+			// Send Messages
+			messageRoutes.POST("/:roomId", roomHandler.SendMessage)
+			
+			// Get Messages
+			messageRoutes.GET("/:roomId", roomHandler.FetchMessageByRoomId)
+			
+			// Delete message
+			messageRoutes.DELETE("/:roomId/:messageId", roomHandler.DeleteMessage)
 
-			// Invite users to group
-			roomRoutes.POST("/:id/invite", roomHandler.InviteRoom)
-			// roomRoutes.PUT("/:id", roomHandler.UpdateRoomSettings)
-			// roomRoutes.PATCH("/:id/status", roomHandler.UpdateRoomStatus)
+			// Edit message
+			messageRoutes.PUT("/:roomId/:messageId", roomHandler.EditMessage)
 		}
 	}
 

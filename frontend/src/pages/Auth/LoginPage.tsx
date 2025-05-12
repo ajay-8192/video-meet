@@ -1,34 +1,20 @@
-import { useNavigate } from "react-router-dom";
-import { construct_api_urls } from "../../constants/api";
-import useApiRequest from "../../hooks/useAPIRequest";
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import { useAuthService } from "../../services/authServices";
 
-const Login: React.FC = () => {
+const LoginPage: React.FC = () => {
 
     const [email, setEmail] = useState("");
 
-    const navigate = useNavigate();
-    const { loading, data, refetch } = useApiRequest(construct_api_urls.sendOTP());
+    const { loading, handleSendOTP } = useAuthService();
 
     const handleChange = (e: any) => {
         const value = e.target.value;
         setEmail(value);
     }
 
-    useEffect(() => {
-        console.log('===> ', { data });
-    }, [data])
-
-    const handleSendOTP = () => {
-
-        refetch(construct_api_urls.sendOTP(), {
-            method: "POST",
-            headers: { 'Content-Type': 'application/json' },
-            credentials: "include",
-            body: JSON.stringify({ email: email }),
-        })
-
-        navigate(`/verify-otp?email=${email}`)
+    const sendOTP = () => {
+        handleSendOTP({ email });
+        return
     };
 
     return (
@@ -54,7 +40,7 @@ const Login: React.FC = () => {
 
                     <button
                         type="button"
-                        onClick={handleSendOTP}
+                        onClick={sendOTP}
                         disabled={loading}
                         className="w-full bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 transition-colors"
                     >
@@ -71,7 +57,7 @@ const Login: React.FC = () => {
                 </div>
             </div>
         </div>
-    );
+    )
 };
 
-export default Login;
+export default LoginPage;

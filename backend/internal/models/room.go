@@ -59,10 +59,20 @@ type RoomStats struct {
 	UpdatedAt         time.Time `json:"updatedAt"`
 }
 
+// type Message struct {
+// 	ID        string    `json:"id" gorm:"primaryKey,index"`
+// 	RoomID    string    `json:"roomId" gorm:"not null;index:idx_room_user"`
+// 	UserID    string    `json:"userId" gorm:"not null;index:idx_room_user"`
+// 	Content   string    `json:"content" gorm:"not null"`
+// 	CreatedAt time.Time `json:"createdAt"`
+// }
+
 type Message struct {
-	ID        string    `json:"id" gorm:"primaryKey,index"`
-	RoomID    string    `json:"roomId" gorm:"not null"`
-	UserID    string    `json:"userId" gorm:"not null"`
-	Content   string    `json:"content" gorm:"not null"`
-	CreatedAt time.Time `json:"createdAt"`
-}
+	ID        string         `json:"id" gorm:"primaryKey,index"`
+	RoomID    string         `json:"roomId" gorm:"not null;index:idx_room_created"`
+	UserID    string         `json:"userId" gorm:"not null"`
+	Content   string         `json:"content" gorm:"not null"`
+	CreatedAt time.Time      `json:"createdAt" gorm:"index:idx_room_created"`
+	UpdatedAt time.Time		 `json:"updatedAt"`
+	DeletedAt time.Time 	 `json:"-" gorm:"index"` // Optional
+}	

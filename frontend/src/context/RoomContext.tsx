@@ -22,15 +22,15 @@ type RoomsType = {
 };
 
 interface RoomContextType {
+    currentRoom: RoomType | null;
     rooms: RoomsType;
-    currentRoom: RoomType | undefined;
     joinRoom: (room: RoomType) => void;
     leaveRoom: (roomId: string) => void;
     updateRooms: (rooms: RoomsType) => void;
     updateSelectedRoom: (roomId: string) => void;
 }
 
-const RoomContext = createContext<RoomContextType | undefined>(undefined)
+const RoomContext = createContext<RoomContextType | undefined>(undefined);
 
 export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 
@@ -40,21 +40,6 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
         pending: [],
         public: []
     });
-    const [currentRoom, setCurrentRoom] = useState<RoomType | undefined>(undefined)
-
-    const updateRooms = (rooms: RoomsType) => {
-        setRooms(rooms)
-    }
-
-    useEffect(() => {
-        console.log('====> ', { rooms });
-    }, [rooms])
-
-    const updateSelectedRoom = (roomId: string) => {
-        console.log('====> ', { roomId });
-        const room = rooms.joined.find(rm => rm.id === roomId) || undefined;
-        setCurrentRoom(room)
-    };
 
     const joinRoom = (room: RoomType) => {
         console.log('======> ', { room });
@@ -64,12 +49,40 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.log('====> ', { roomId });
     };
 
+    const updateRooms = (newRooms: RoomsType) => {
+        setRooms({
+            ...rooms,
+            ...newRooms
+        })
+    }
+
+    useEffect(() => {
+        console.log('====> ', { rooms });
+    }, [rooms])
+
+    const updateSelectedRoom = (roomId: string) => {
+        console.log('====> ', { roomId });
+        const room = rooms.joined.find(rm => rm.id === roomId) || null;
+        setCurrentRoom(room)
+    };
+
+    const [currentRoom, setCurrentRoom] = useState<RoomType | null>(null)
+
     return (
-        <RoomContext.Provider value={{ rooms, currentRoom, updateRooms, updateSelectedRoom, joinRoom, leaveRoom }}>
+        <RoomContext.Provider
+            value={{
+                currentRoom,
+                rooms,
+                joinRoom,
+                leaveRoom,
+                updateRooms,
+                updateSelectedRoom
+            }}
+        >
             {children}
         </RoomContext.Provider>
     )
-};
+}
 
 export const useRoom = (): RoomContextType => {
     const context = useContext(RoomContext);
