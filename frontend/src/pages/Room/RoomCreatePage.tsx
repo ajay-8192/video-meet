@@ -31,7 +31,7 @@ const RoomCreatePage: React.FC = () => {
         if (data?.room) {
             const id = data.room.id;
             // const link = location.host + `/room/${id}`;
-            setInviteLink(`/room/${id}/chat`);
+            setInviteLink(`/room/${id}`);
             const newRooms = {
                 ...rooms,
                 joined: [

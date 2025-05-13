@@ -43,13 +43,7 @@ const routes = createBrowserRouter([
                 element: <Outlet />,
                 children: [
                     {
-                        path: "room/:roomId/chat"
-                    },
-                    {
-                        path: "room/:roomId/video"
-                    },
-                    {
-                        path: "room/:roomId/audio"
+                        path: "room/:roomId"
                     }
                 ]
             }
