@@ -2,6 +2,8 @@ import { useState } from "react";
 import apiService, { ApiError, isApiError } from "../utils/api";
 import { useToast } from "../context/NotificationContext";
 import { useNavigate } from "react-router-dom";
+import { RoomType } from "../context/RoomContext";
+
 
 export const useRoomService = () => {
     const [loading, setLoading] = useState<boolean>(false);
@@ -47,6 +49,16 @@ export const useRoomService = () => {
         roomType: "joined" | "invited" | "requestPending" | "public" | "all" | string;
     };
 
+    interface RoomsResponse {
+        rooms: {
+            joined: RoomType[];
+            invited: RoomType[];
+            requestPending: RoomType[];
+            public: RoomType[];
+        };
+    }
+
+
     const handleFetchRooms = async (payload: FetchRoomsType) => {
         setLoading(true);
         setData(null)
@@ -58,8 +70,9 @@ export const useRoomService = () => {
             } else {
                 url = "/rooms"
             }
-            const response = await apiService.get(url);
+            const response = await apiService.get<RoomsResponse>(url);
             setData(response)
+            return response;
         } catch (error) {
             setData(null);
             if (isApiError(error)) {

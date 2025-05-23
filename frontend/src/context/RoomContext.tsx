@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState } from "react";
 
-interface RoomType {
+export interface RoomType {
     id: string;
     allow_chat: boolean;
     allow_screen_share: boolean;
@@ -8,10 +8,11 @@ interface RoomType {
     createdBy: string;
     description: string;
     isPrivate: boolean;
-    maxUsers: number
+    maxUsers: number;
     mute_on_entry: boolean;
     name: string;
     require_password: boolean;
+    unreadMessages?: number;
 }
 
 type RoomsType = {

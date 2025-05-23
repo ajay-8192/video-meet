@@ -66,7 +66,7 @@ func (s *RoomService) CreateRoom(req CreateRoomRequest, userId string) (*models.
 func (s *RoomService) GetRoomMember(userId, roomId string) (*models.RoomMember, error) {
 	var roomMember *models.RoomMember
 
-	if err := s.db.Where("user_id = ? AND room_id = ?", userId, roomId).First(roomMember).Error; err != nil {
+	if err := s.db.Where("user_id = ? AND room_id = ?", userId, roomId).First(&roomMember).Error; err != nil {
 		return nil, err
 	}
 
@@ -348,7 +348,7 @@ func (s *RoomService) CancelJoinReqest(joinRequest *models.JoinRequest) error {
 func (s *RoomService) getRoomDetails(roomId string) (*models.Room, error) {
 	var room *models.Room
 
-	if err := s.db.Where("id = ?", roomId).First(room).Error; err != nil {
+	if err := s.db.Where("id = ?", roomId).First(&room).Error; err != nil {
 		return nil, err
 	}
 
@@ -373,7 +373,7 @@ func (s *RoomService) addMessage(message *models.Message) error {
 
 func (s *RoomService) getMessageById(messageId string) (*models.Message, error) {
 	var message *models.Message
-	if err := s.db.Where("id = ?", messageId).First(message).Error; err != nil {
+	if err := s.db.Where("id = ?", messageId).First(&message).Error; err != nil {
 		return nil, err
 	}
 
@@ -399,7 +399,7 @@ func (s *RoomService) deleteMessage(message *models.Message) error {
 func (s *RoomService) fetchMessages(roomId string, beforeTime time.Time, limit int) ([]models.Message, error) {
 	var messages []models.Message
 
-	if err := s.db.Where("room_id = ? AND created_at = ?", roomId, beforeTime).Order("created_at desc").Limit(limit).Find(&messages).Error; err != nil {
+	if err := s.db.Where("room_id = ? AND created_at < ?", roomId, beforeTime).Order("created_at desc").Limit(limit).Find(&messages).Error; err != nil {
 		return nil, err
 	}
 

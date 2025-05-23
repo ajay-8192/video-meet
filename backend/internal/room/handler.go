@@ -489,22 +489,28 @@ func (r *RoomHander) SendMessage(ctx *gin.Context) {
 }
 
 func (r *RoomHander) FetchMessageByRoomId(ctx *gin.Context) {
+	fmt.Printf("Fetching messages for room %s\n", ctx.Param("roomId"))
+	
 	roomId := ctx.Param("roomId")
 	userId := ctx.GetString("userId")
 	limit, err := strconv.Atoi(ctx.DefaultQuery("limit", "20"))
 	if err != nil {
+		fmt.Printf("Invalid limit parameter: %v\n", err)
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+	fmt.Printf("Fetching %d messages\n", limit)
 
 	room, err := r.server.getRoomDetails(roomId)
 	if err != nil {
+		fmt.Printf("Failed to get room details: %v\n", err)
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
 	_, err = r.server.GetRoomMember(userId, roomId)
 	if err != nil {
+		fmt.Printf("Failed to get room member: %v\n", err)
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
@@ -513,14 +519,17 @@ func (r *RoomHander) FetchMessageByRoomId(ctx *gin.Context) {
 	if beforeStr := ctx.Query("before"); beforeStr != "" {
 		if t, err := time.Parse(time.RFC3339, beforeStr); err == nil {
 			beforeTime = t
+			fmt.Printf("Using custom before time: %v\n", beforeTime)
 		}
 	}
 
 	messages, err := r.server.fetchMessages(room.ID, beforeTime, limit)
 	if err != nil {
+		fmt.Printf("Failed to fetch messages: %v\n", err)
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+	fmt.Printf("Successfully fetched %d messages\n", len(messages))
 
 	sorted := make([]models.Message, len(messages))
 	for i := range messages {
@@ -531,6 +540,7 @@ func (r *RoomHander) FetchMessageByRoomId(ctx *gin.Context) {
 		"message": "Fetched messages",
 		"messageData": sorted,
 	})
+	fmt.Printf("Successfully returned messages to client\n")
 }
 
 func (r *RoomHander) EditMessage(ctx *gin.Context) {
