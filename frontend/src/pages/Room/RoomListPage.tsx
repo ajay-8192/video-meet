@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useRoom } from "../../context/RoomContext";
 import { useLocation, useNavigate } from "react-router-dom";
-import Room from "../../components/Room";
+import RoomCard from "../../components/RoomCard";
 import { useRoomService } from "../../services/roomService";
 
 const RoomListPage: React.FC = () => {
@@ -124,7 +124,7 @@ const RoomListPage: React.FC = () => {
         }
 
         return currentRooms.map((room: any) => (
-            <Room
+            <RoomCard
                 key={room.id}
                 room={activeTab === "invited" ? { ...room, ...room.Room } : room}
                 type={

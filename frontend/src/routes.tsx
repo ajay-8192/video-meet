@@ -7,6 +7,8 @@ import VerifyOTPPage from "./pages/Auth/VerifyOTPPage";
 import RoomListPage from "./pages/Room/RoomListPage";
 import RoomCreatePage from "./pages/Room/RoomCreatePage";
 import RoomRoot from "./pages/RoomRoot";
+import RoomChatPage from "./pages/Room/RoomChat";
+import { ChatProvider } from "./context/ChatContext";
 
 const routes = createBrowserRouter([
     {
@@ -40,10 +42,15 @@ const routes = createBrowserRouter([
             },
             {
                 path: "",
-                element: <Outlet />,
+                element: (
+                    <ChatProvider>
+                        <Outlet />
+                    </ChatProvider>
+                ),
                 children: [
                     {
-                        path: "room/:roomId"
+                        path: "room/:roomId",
+                        Component: RoomChatPage
                     }
                 ]
             }
