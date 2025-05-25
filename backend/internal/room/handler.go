@@ -56,6 +56,15 @@ func (r *RoomHander) CreateRoom(ctx *gin.Context) {
 		return
 	}
 
+	if len(req.InvitedUsers) > 0 {
+		for _, email := range req.InvitedUsers {
+			if err := r.server.InviteUserByEmail(room.ID, email, userId); err != nil {
+				ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+				return
+			}
+		}
+	}
+
 	ctx.JSON(http.StatusCreated, gin.H{
 		"message": "Room created successfully",
 		"room":    room,
@@ -76,9 +85,9 @@ func (r *RoomHander) DeleteRoom(ctx *gin.Context) {
 }
 
 type roomResult struct {
-	Rooms          []models.Room
-	InvitedRooms   []invitedInfo
-	Err            error
+	Rooms        []models.Room
+	InvitedRooms []invitedInfo
+	Err          error
 }
 
 func (r *RoomHander) GetRoomsList(ctx *gin.Context) {
@@ -122,7 +131,7 @@ func (r *RoomHander) GetRoomsList(ctx *gin.Context) {
 		})
 	case "requestPending":
 		rooms, err := r.server.GetJoinRequestRooms(userId)
-		
+
 		if err != nil {
 			ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
@@ -162,7 +171,7 @@ func (r *RoomHander) GetRoomsList(ctx *gin.Context) {
 		requestChan := make(chan roomResult)
 		publicChan := make(chan roomResult)
 
-		go func () {
+		go func() {
 			rooms, err := r.server.GetJoinedRooms(userId)
 			joinedChan <- roomResult{Rooms: rooms, Err: err}
 		}()
@@ -229,7 +238,7 @@ func (r *RoomHander) GetRoomsList(ctx *gin.Context) {
 
 		ctx.JSON(http.StatusOK, gin.H{
 			"message": "Fetch rooms successfully",
-			"rooms":   gin.H{
+			"rooms": gin.H{
 				"joined":  joinedRooms,
 				"invited": invitedRooms,
 				"pending": requestRooms,
@@ -243,7 +252,7 @@ func (r *RoomHander) AcceptRoomInvite(ctx *gin.Context) {
 	roomId := ctx.Param("roomId")
 	userId := ctx.GetString("userId")
 
-	var user models.User
+	var user *models.User
 	if err := r.server.db.Where("id = ?", userId).First(&user).Error; err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch user details"})
 		return
@@ -262,7 +271,7 @@ func (r *RoomHander) AcceptRoomInvite(ctx *gin.Context) {
 			return
 		}
 
-		if err := r.server.updateRoomMemberCount(roomId); err != nil {
+		if err := r.server.updateRoomMemberCount(roomId, true); err != nil {
 			ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 			return
 		}
@@ -302,7 +311,7 @@ func (r *RoomHander) DeclineInvitaion(ctx *gin.Context) {
 
 type addJoinRequest struct {
 	Message string `json:"message"`
-} 
+}
 
 func (r *RoomHander) RequestToJoin(ctx *gin.Context) {
 	roomId := ctx.Param("roomId")
@@ -326,7 +335,7 @@ func (r *RoomHander) RequestToJoin(ctx *gin.Context) {
 			return
 		}
 		ctx.JSON(http.StatusCreated, gin.H{
-			"message": "Successfully sent request to join to room",
+			"message":       "Successfully sent request to join to room",
 			"joineeRequest": newJoinRequest,
 		})
 		return
@@ -334,7 +343,7 @@ func (r *RoomHander) RequestToJoin(ctx *gin.Context) {
 
 	if err == nil {
 		ctx.JSON(http.StatusOK, gin.H{
-			"message": "Join request already exist",
+			"message":       "Join request already exist",
 			"joineeRequest": joineeRequest,
 		})
 		return
@@ -376,7 +385,7 @@ func (r *RoomHander) GetJoinRequest(ctx *gin.Context) {
 
 	if err == nil {
 		ctx.JSON(http.StatusOK, gin.H{
-			"message": "Fetched Join Request successfully",
+			"message":     "Fetched Join Request successfully",
 			"joinRequest": joineeRequest,
 		})
 		return
@@ -470,10 +479,10 @@ func (r *RoomHander) SendMessage(ctx *gin.Context) {
 	}
 
 	message := &models.Message{
-		ID: uuid.NewString(),
-		RoomID: room.ID,
-		UserID: roomMember.UserID,
-		Content: req.Content,
+		ID:        uuid.NewString(),
+		RoomID:    room.ID,
+		UserID:    roomMember.UserID,
+		Content:   req.Content,
 		CreatedAt: time.Now(),
 	}
 
@@ -490,7 +499,7 @@ func (r *RoomHander) SendMessage(ctx *gin.Context) {
 
 func (r *RoomHander) FetchMessageByRoomId(ctx *gin.Context) {
 	fmt.Printf("Fetching messages for room %s\n", ctx.Param("roomId"))
-	
+
 	roomId := ctx.Param("roomId")
 	userId := ctx.GetString("userId")
 	limit, err := strconv.Atoi(ctx.DefaultQuery("limit", "20"))
@@ -537,7 +546,7 @@ func (r *RoomHander) FetchMessageByRoomId(ctx *gin.Context) {
 	}
 
 	ctx.JSON(http.StatusOK, gin.H{
-		"message": "Fetched messages",
+		"message":     "Fetched messages",
 		"messageData": sorted,
 	})
 	fmt.Printf("Successfully returned messages to client\n")

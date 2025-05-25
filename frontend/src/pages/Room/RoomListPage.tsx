@@ -1,33 +1,19 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useRoom } from "../../context/RoomContext";
 import { useLocation, useNavigate } from "react-router-dom";
 import RoomCard from "../../components/RoomCard";
-import { useRoomService } from "../../services/roomService";
 
 const RoomListPage: React.FC = () => {
 
-    const { rooms, updateRooms } = useRoom();
+    const { rooms } = useRoom();
     const navigate = useNavigate();
 
     const { search } = useLocation();
     const query = new URLSearchParams(search);
     const roomType = query.get("roomType") || "";
 
-    const { data, handleFetchRooms } = useRoomService();
-
     const [searchQuery, setSearchQuery] = useState("");
     const [activeTab, setActiveTab] = useState(roomType || 'joined');
-
-    useEffect(() => {
-        handleFetchRooms({ roomType: activeTab })
-    }, [activeTab])
-
-    useEffect(() => {
-        console.log('===> 22:', data);            
-        if (data?.rooms) {
-            updateRooms(data?.rooms)
-        }
-    }, [data])
 
     const filterRooms = (roomsList: any) => {
         if (!searchQuery) return roomsList;
@@ -39,7 +25,7 @@ const RoomListPage: React.FC = () => {
     };
 
     const navigateToCreateRoom = () => {
-        navigate("/rooms/create");
+        navigate("/room/create");
         return;
     };
 

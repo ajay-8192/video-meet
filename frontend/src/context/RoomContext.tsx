@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useState } from "react";
 
 export interface RoomType {
     id: string;
@@ -10,6 +10,7 @@ export interface RoomType {
     isPrivate: boolean;
     maxUsers: number;
     mute_on_entry: boolean;
+    membersCount: number;
     name: string;
     require_password: boolean;
     unreadMessages?: number;
@@ -57,12 +58,7 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
         })
     }
 
-    useEffect(() => {
-        console.log('====> ', { rooms });
-    }, [rooms])
-
     const updateSelectedRoom = (roomId: string) => {
-        console.log('====> ', { roomId });
         const room = rooms.joined.find(rm => rm.id === roomId) || null;
         setCurrentRoom(room)
     };

@@ -1,34 +1,29 @@
 import { useEffect } from "react";
 import { useAuthService } from "../services/authServices";
 import { useAuth } from "../context/AuthContext";
-import { Outlet } from "react-router-dom";
 
-const AuthRoot: React.FC = () => {
+const AuthRoot: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 
     const { user, login } = useAuth();
     const { data, loading, handleFetchDetails } = useAuthService();
 
     useEffect(() => {
         if (!user?.id) {
+            console.log('===> AuthRoot -> 25: Fetching user details');
             handleFetchDetails();
         }
     }, [user]);
 
     
     useEffect(() => {
-        console.log('====> ', { data });
         if (data?.user) {
             login(data?.user)
         }
     }, [data])
     
-    if (loading) return <div>Fetching user details...</div>
+    if (loading || !user?.id) return <div>Fetching user details...</div>
 
-    return (
-        <>
-            <Outlet />
-        </>
-    );
+    return children;
 };
 
 export default AuthRoot;

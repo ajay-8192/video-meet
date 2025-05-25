@@ -27,7 +27,6 @@ const RoomCreatePage: React.FC = () => {
     const { loading, error, data, handleCreateRoom: createRoom } = useRoomService();
 
     useEffect(() => {
-        console.log('====> DATA:', { data });
         if (data?.room) {
             const id = data.room.id;
             // const link = location.host + `/room/${id}`;

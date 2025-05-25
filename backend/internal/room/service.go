@@ -6,6 +6,7 @@ import (
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 type RoomService struct {
@@ -74,11 +75,22 @@ func (s *RoomService) GetRoomMember(userId, roomId string) (*models.RoomMember, 
 }
 
 func (s *RoomService) DeleteRoomMember(roomMember *models.RoomMember) error {
-	if err := s.db.Delete(roomMember).Error; err != nil {
+	tx := s.db.Begin()
+	if tx.Error != nil {
+		return tx.Error
+	}
+
+	if err := tx.Delete(roomMember).Error; err != nil {
+		tx.Rollback()
 		return err
 	}
 
-	return nil
+	if err := s.updateRoomMemberCount(roomMember.RoomID, false); err != nil {
+		tx.Rollback()
+		return err
+	}
+
+	return tx.Commit().Error
 }
 
 func (s *RoomService) DeleteRoom(roomId string) error {
@@ -258,6 +270,25 @@ func (s *RoomService) GetRoomInvite(userId, email, roomId string) (*models.Invit
 	return invite, nil
 }
 
+func (s *RoomService) InviteUserByEmail(roomId, email, userId string) error {
+	invitedMember := &models.InvitedMember{
+		ID:        uuid.NewString(),
+		RoomID:    roomId,
+		Email:     email,
+		Status:    "pending",
+		InvitedBy: userId,
+		CreatedAt: time.Now(),
+		UpdatedAt: time.Now(),
+	}
+
+	if err := s.db.Create(invitedMember).Error; err != nil {
+		return err
+	}
+
+	return nil
+
+}
+
 func (s *RoomService) CancelInvite(invitedMember *models.InvitedMember) error {
 	if err := s.db.Delete(invitedMember).Error; err != nil {
 		return err
@@ -355,12 +386,27 @@ func (s *RoomService) getRoomDetails(roomId string) (*models.Room, error) {
 	return room, nil
 }
 
-func (s *RoomService) updateRoomMemberCount(roomId string) error {
-	if err := s.db.Where("id = ?", roomId).Update("members_count", gorm.Expr("members_count + ?", 1)).Error; err != nil {
-		return err
-	}
+func (s *RoomService) updateRoomMemberCount(roomId string, increment bool) error {
+	return s.db.Transaction(func(tx *gorm.DB) error {
+		var room models.Room
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("id = ?", roomId).First(&room).Error; err != nil {
+			return err
+		}
 
-	return nil
+		if increment {
+			room.MembersCount++
+		} else {
+			if room.MembersCount > 0 {
+				room.MembersCount--
+			}
+		}
+
+		if err := tx.Save(&room).Error; err != nil {
+			return err
+		}
+
+		return nil
+	})
 }
 
 func (s *RoomService) addMessage(message *models.Message) error {

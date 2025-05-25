@@ -3,7 +3,7 @@ import { useAuthService } from "../../services/authServices";
 
 const RegisterPage: React.FC = () => {
 
-    const { data, loading, handleRegister } = useAuthService();
+    const { loading, handleRegister } = useAuthService();
     const [registerDetails, setRegsiterDetails] = useState({
         firstname: "",
         lastname: "",
@@ -18,8 +18,6 @@ const RegisterPage: React.FC = () => {
             [name]: value
         });
     };
-
-    console.log('===> ', { data });
 
     const handleRegisterUser = (e: any) => {
         e.preventDefault();

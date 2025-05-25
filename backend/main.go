@@ -1,12 +1,14 @@
 package main
 
 import (
+	"log"
 	"net/http"
 	"video-chat/internal/auth"
 	"video-chat/internal/config"
 	"video-chat/internal/database"
 	"video-chat/internal/room"
 	"video-chat/internal/utils"
+	"video-chat/internal/websockets"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -34,6 +36,9 @@ func main() {
 	// Initialize handler
 	authHandler := auth.NewAuthHandler(authService, redisClient)
 	roomHandler := room.NewRoomHandler(roomService, redisClient)
+
+	hub := websockets.NewHub()
+	go hub.Run()
 
 	r := gin.Default()
 
@@ -125,6 +130,24 @@ func main() {
 			// Edit message
 			messageRoutes.PUT("/:roomId/:messageId", roomHandler.EditMessage)
 		}
+
+		protectedRoutes.GET("/ws/:roomId", func(c *gin.Context) {
+			roomId := c.Param("roomId")
+			userId := c.GetString("userId")
+			userName := c.GetString("userName")
+		
+			conn, err := websockets.Upgrader.Upgrade(c.Writer, c.Request, nil)
+			if err != nil {
+				log.Printf("error upgrading to websocket: %v", err)
+				return
+			}
+		
+			client := websockets.NewClient(hub, conn, roomId, userId, userName)
+			client.Hub.Register <- client
+		
+			go client.WritePump()
+			go client.ReadPump()
+		})
 	}
 
 	r.Run(":" + PORT)
